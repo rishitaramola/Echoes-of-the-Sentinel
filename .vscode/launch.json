@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch Echoes of the Sentinel",
+            "request": "launch",
+            "mainClass": "game.Main",
+            "projectName": "EchoesOfTheSentinel",
+            "sourcePaths": ["src"]
+        }
+    ]
+}
