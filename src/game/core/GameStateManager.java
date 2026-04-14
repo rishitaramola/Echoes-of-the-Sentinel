@@ -155,8 +155,7 @@ public class GameStateManager {
         if (currentState != GameState.RIDDLE_STASIS) return;
         activeRiddle     = null;
         riddleTargetItem = null;
-        currentState     = GameState.EXPLORATION;
-        notifyListeners();
+        startPanicBuffer();
     }
 
     // ---- BEGIN Panic Buffer (3-second freeze on player) ---
