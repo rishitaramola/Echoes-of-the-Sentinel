@@ -68,7 +68,7 @@ public class GamePanel extends JPanel {
 
     // ---- Input routing -------------------------------------
     private void handleKey(int key) {
-        if (gsm.getCurrentState() != GameState.EXPLORATION) return;
+        if (gsm.getCurrentState() != GameState.EXPLORATION && gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
         switch (key) {
             case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
             case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);

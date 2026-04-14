@@ -82,8 +82,9 @@ public class Sentinel {
             path = bfs(tileX, tileY, huntTargetX, huntTargetY);
         }
 
-        int currentHuntInterval = (int)(MOVE_INTERVAL_MS / speedMultiplier);
-        if (moveTimer >= currentHuntInterval && !path.isEmpty()) { 
+        float huntSpeedMultiplier = speedMultiplier <= 2.0f ? speedMultiplier * 2.0f : speedMultiplier;
+        int currentHuntInterval = (int)(MOVE_INTERVAL_MS / huntSpeedMultiplier);
+        if (moveTimer >= currentHuntInterval && !path.isEmpty()) {
             moveTimer = 0;
             int[] next = path.remove(0);
             tileX = next[0];
