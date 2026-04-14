@@ -76,6 +76,7 @@ public class GameStateManager {
             int prevSentinelY = sentinel.getTileY();
             sentinel.update(deltaMs, player);
             checkSentinelCatch(prevSentinelX, prevSentinelY);
+            checkItemProximity();
             if (panicBufferMs <= 0) {
                 endPanicBuffer();
             }
@@ -85,7 +86,7 @@ public class GameStateManager {
 
     // ---- Player movement (called from input handler) ------
     public void movePlayer(int dx, int dy) {
-        if (currentState != GameState.EXPLORATION) return;
+        if (currentState != GameState.EXPLORATION && currentState != GameState.PANIC_BUFFER) return;
         int prevPlayerX = player.getTileX();
         int prevPlayerY = player.getTileY();
         player.move(dx, dy);
