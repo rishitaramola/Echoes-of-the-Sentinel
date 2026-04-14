@@ -118,10 +118,11 @@ public class RiddleEngine {
             };
             int idx = rng.nextInt(wordsAndHints.length);
             String[] w = wordsAndHints[idx];
+            String ansChar = String.valueOf(w[0].charAt(Integer.parseInt(w[3]) - 1));
             return new Riddle(
                 "English Puzzle!\nHint: " + w[1] + "\nFill in the missing letter:\n" + w[2],
-                "The full word is: " + w[0].charAt(Integer.parseInt(w[3]) - 1),
-                w[3]
+                "The full word is: " + w[0],
+                ansChar
             );
         } else if (type == 1) {
             // Unscramble simple words
