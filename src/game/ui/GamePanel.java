@@ -8,6 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.List;
+import java.awt.geom.AffineTransform;
 
 /**
  * GamePanel is the main rendering canvas.
@@ -15,6 +16,7 @@ import java.util.List;
  * its own focus and all clicks/typing work correctly.
  */
 public class GamePanel extends JPanel {
+    
 
     private static final Color COL_FLOOR          = new Color(18, 14, 40);
     private static final Color COL_WALL           = new Color(35, 25, 65);
@@ -36,7 +38,26 @@ public class GamePanel extends JPanel {
     private final GameStateManager gsm;
     private       GameLoop         gameLoop;
     private       RiddlePanel      riddlePanel; // JDialog-based, set after window is ready
+    private boolean isPaused = false;
+ private void drawPauseOverlay(Graphics2D g) {
+    int w = getWidth();
+    int h = getHeight();
 
+    // Dark full screen
+    g.setColor(new Color(0, 0, 0, 180));
+    g.fillRect(0, 0, w, h);
+
+    // Text
+    String text = "PAUSED";
+    g.setFont(new Font("Monospaced", Font.BOLD, 40));
+    g.setColor(Color.WHITE);
+
+    FontMetrics fm = g.getFontMetrics();
+    int x = (w - fm.stringWidth(text)) / 2;
+    int y = h / 2;
+
+    g.drawString(text, x, y);
+}
     // -------------------------------------------------------
     public GamePanel(GameStateManager gsm) {
         this.gsm = gsm;
@@ -64,45 +85,61 @@ public class GamePanel extends JPanel {
         }));
     }
 
-    public void setGameLoop(GameLoop gl) { this.gameLoop = gl; }
+   public void setGameLoop(GameLoop gl) {
+    this.gameLoop = gl;
+
+    // 🔥 IMPORTANT RESET
+    this.isPaused = false;
+}
 
     // ---- Input routing -------------------------------------
     private void handleKey(int key) {
-        if (gsm.getCurrentState() != GameState.EXPLORATION && gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
-        switch (key) {
-            case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
-            case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);
-            case KeyEvent.VK_A, KeyEvent.VK_LEFT  -> gsm.movePlayer(-1, 0);
-            case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> gsm.movePlayer( 1, 0);
-            case KeyEvent.VK_E, KeyEvent.VK_SPACE -> gsm.interact();
-        }
-        repaint();
+    if (isPaused) return; // ✅ STOP INPUT WHEN PAUSED
+
+    if (gsm.getCurrentState() != GameState.EXPLORATION && gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
+
+    switch (key) {
+        case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
+        case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);
+        case KeyEvent.VK_A, KeyEvent.VK_LEFT  -> gsm.movePlayer(-1, 0);
+        case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> gsm.movePlayer( 1, 0);
+        case KeyEvent.VK_E, KeyEvent.VK_SPACE -> gsm.interact();
     }
+    repaint();
+}
 
     // ---- Main render ---------------------------------------
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    Graphics2D g2 = (Graphics2D) g;
 
-        drawHUD(g2);
-        g2.translate(0, HUD_H);
+    // ---- DRAW HUD ----
+    drawHUD(g2);
 
-        drawTiles(g2);
-        drawItems(g2);
-        drawPlayer(g2);
-        drawSentinel(g2);
-        drawInteractPrompt(g2);
-
-        GameState state = gsm.getCurrentState();
-        if (state == GameState.RIDDLE_STASIS) {
-            drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
-        } else if (state == GameState.PANIC_BUFFER) {
-            drawPanicOverlay(g2);
-        }
+    // 🔥 DRAW PAUSE OVERLAY FIRST (FULL SCREEN)
+    if (isPaused) {
+        drawPauseOverlay(g2);
+        return; // stop rest
     }
 
+    // ---- MOVE TO GAME AREA ----
+    g2.translate(0, HUD_H);
+
+    // ---- DRAW GAME ----
+    drawTiles(g2);
+    drawItems(g2);
+    drawPlayer(g2);
+    drawSentinel(g2);
+    drawInteractPrompt(g2);
+
+    GameState state = gsm.getCurrentState();
+    if (state == GameState.RIDDLE_STASIS) {
+        drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
+    } else if (state == GameState.PANIC_BUFFER) {
+        drawPanicOverlay(g2);
+    }
+}
     // ---- HUD -----------------------------------------------
     private void drawHUD(Graphics2D g) {
         g.setColor(COL_HUD_BG);
@@ -271,4 +308,20 @@ public class GamePanel extends JPanel {
         String sub = "The Sentinel is heading to your location!";
         g.drawString(sub, (w - g.getFontMetrics().stringWidth(sub)) / 2, h / 2 + 18);
     }
+    public void pauseGame() {
+    isPaused = true;
+    gsm.setPaused(true); // 🔥 IMPORTANT
+    repaint();
+}
+
+public void resumeGame() {
+    isPaused = false;
+    gsm.setPaused(false); // 🔥      IMPORTANT
+    repaint();
+    requestFocusInWindow();
+}
+
+public boolean isPaused() {
+    return isPaused;
+}
 }
