@@ -39,25 +39,25 @@ public class GamePanel extends JPanel {
     private       GameLoop         gameLoop;
     private       RiddlePanel      riddlePanel; // JDialog-based, set after window is ready
     private boolean isPaused = false;
- private void drawPauseOverlay(Graphics2D g) {
-    int w = getWidth();
-    int h = getHeight();
 
-    // Dark full screen
-    g.setColor(new Color(0, 0, 0, 180));
-    g.fillRect(0, 0, w, h);
+    private void drawPauseOverlay(Graphics2D g) {
+        int w = getWidth();
+        int h = getHeight();
 
-    // Text
-    String text = "PAUSED";
-    g.setFont(new Font("Monospaced", Font.BOLD, 40));
-    g.setColor(Color.WHITE);
+        g.setColor(new Color(0, 0, 0, 180));
+        g.fillRect(0, 0, w, h);
 
-    FontMetrics fm = g.getFontMetrics();
-    int x = (w - fm.stringWidth(text)) / 2;
-    int y = h / 2;
+        String text = "PAUSED";
+        g.setFont(new Font("Monospaced", Font.BOLD, 40));
+        g.setColor(Color.WHITE);
 
-    g.drawString(text, x, y);
-}
+        FontMetrics fm = g.getFontMetrics();
+        int x = (w - fm.stringWidth(text)) / 2;
+        int y = h / 2;
+
+        g.drawString(text, x, y);
+    }
+
     // -------------------------------------------------------
     public GamePanel(GameStateManager gsm) {
         this.gsm = gsm;
@@ -86,60 +86,57 @@ public class GamePanel extends JPanel {
     }
 
    public void setGameLoop(GameLoop gl) {
-    this.gameLoop = gl;
-
-    // 🔥 IMPORTANT RESET
-    this.isPaused = false;
-}
+        this.gameLoop = gl;
+        this.isPaused = false; // reset pause
+    }
 
     // ---- Input routing -------------------------------------
     private void handleKey(int key) {
-    if (isPaused) return; // ✅ STOP INPUT WHEN PAUSED
+        if (isPaused) return;
 
-    if (gsm.getCurrentState() != GameState.EXPLORATION && gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
+        if (gsm.getCurrentState() != GameState.EXPLORATION &&
+            gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
 
-    switch (key) {
-        case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
-        case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);
-        case KeyEvent.VK_A, KeyEvent.VK_LEFT  -> gsm.movePlayer(-1, 0);
-        case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> gsm.movePlayer( 1, 0);
-        case KeyEvent.VK_E, KeyEvent.VK_SPACE -> gsm.interact();
+        switch (key) {
+            case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
+            case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);
+            case KeyEvent.VK_A, KeyEvent.VK_LEFT  -> gsm.movePlayer(-1, 0);
+            case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> gsm.movePlayer( 1, 0);
+            case KeyEvent.VK_E, KeyEvent.VK_SPACE -> gsm.interact();
+        }
+        repaint();
     }
-    repaint();
-}
 
     // ---- Main render ---------------------------------------
     @Override
-protected void paintComponent(Graphics g) {
-    super.paintComponent(g);
-    Graphics2D g2 = (Graphics2D) g;
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g;
 
-    // ---- DRAW HUD ----
-    drawHUD(g2);
+        // ---- DRAW HUD ----
+        drawHUD(g2);
 
-    // 🔥 DRAW PAUSE OVERLAY FIRST (FULL SCREEN)
-    if (isPaused) {
-        drawPauseOverlay(g2);
-        return; // stop rest
+        if (isPaused) {
+            drawPauseOverlay(g2);
+            return;
+        }
+
+        g2.translate(0, HUD_H);
+
+        drawTiles(g2);
+        drawItems(g2);
+        drawPlayer(g2);
+        drawSentinel(g2);
+        drawInteractPrompt(g2);
+
+        GameState state = gsm.getCurrentState();
+        if (state == GameState.RIDDLE_STASIS) {
+            drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
+        } else if (state == GameState.PANIC_BUFFER) {
+            drawPanicOverlay(g2);
+        }
     }
 
-    // ---- MOVE TO GAME AREA ----
-    g2.translate(0, HUD_H);
-
-    // ---- DRAW GAME ----
-    drawTiles(g2);
-    drawItems(g2);
-    drawPlayer(g2);
-    drawSentinel(g2);
-    drawInteractPrompt(g2);
-
-    GameState state = gsm.getCurrentState();
-    if (state == GameState.RIDDLE_STASIS) {
-        drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
-    } else if (state == GameState.PANIC_BUFFER) {
-        drawPanicOverlay(g2);
-    }
-}
     // ---- HUD -----------------------------------------------
     private void drawHUD(Graphics2D g) {
         g.setColor(COL_HUD_BG);
@@ -157,9 +154,12 @@ protected void paintComponent(Graphics g) {
         g.setColor(COL_HUD_TEXT);
         g.drawString("ITEMS: " + gsm.getItemsCollected() + " / 3", 200, 38);
 
+        // 🔥 NEW FEATURE: SCORE
+        g.drawString("SCORE: " + gsm.getScore(), 380, 38);
+
         g.setFont(new Font("Monospaced", Font.PLAIN, 13));
         g.setColor(stateColor());
-        g.drawString(stateLabel(), 420, 38);
+        g.drawString(stateLabel(), 580, 38);
 
         g.setColor(new Color(60, 40, 100));
         g.fillRect(0, HUD_H - 2, getWidth(), 2);
@@ -189,6 +189,7 @@ protected void paintComponent(Graphics g) {
             default            -> COL_HUD_TEXT;
         };
     }
+
 
     // ---- Tile renderer -------------------------------------
     private void drawTiles(Graphics2D g) {

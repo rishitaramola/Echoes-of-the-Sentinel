@@ -2,19 +2,6 @@ package game.core;
 
 import javax.swing.Timer;
 
-/**
- * GameLoop drives the entire game using a javax.swing.Timer.
- *
- * Runs at ~60 FPS (every 16 ms). On each tick:
- *   1. Decrements the global 10-minute countdown.
- *   2. Calls GameStateManager.update() (entity logic).
- *   3. Calls repaint() on the render target.
- *
- * IMPORTANT:
- * - GameLoop NEVER handles pause directly.
- * - Pause is handled inside GameStateManager / GamePanel.
- * - Rendering ALWAYS continues (so overlays like PAUSED show).
- */
 public class GameLoop {
 
     private static final int TICK_MS = 16; // ~60 FPS
@@ -27,13 +14,11 @@ public class GameLoop {
     private int remainingMs = GAME_DURATION_MS;
     private long lastTickTime;
 
-    // -------------------------------------------------------
     public GameLoop(GameStateManager gsm, Runnable repaintCallback) {
         this.gsm = gsm;
         this.repaintCallback = repaintCallback;
     }
 
-    // ---- Start / Stop / Reset -----------------------------
     public void start() {
         lastTickTime = System.currentTimeMillis();
         remainingMs = GAME_DURATION_MS;
@@ -60,7 +45,6 @@ public class GameLoop {
 
         GameState state = gsm.getCurrentState();
 
-        // Timer continues in all active gameplay states
         if (state == GameState.EXPLORATION ||
             state == GameState.RIDDLE_STASIS ||
             state == GameState.PANIC_BUFFER) {
@@ -74,10 +58,13 @@ public class GameLoop {
             }
         }
 
-        // 🔥 GameStateManager decides whether to update (pause handled there)
+        // ✅ IMPORTANT: send remaining time to GameStateManager
+        gsm.setRemainingTime(remainingMs);
+
+        // Update game logic
         gsm.update(deltaMs);
 
-        // 🔥 ALWAYS repaint (important for pause overlay)
+        // Always repaint
         repaintCallback.run();
     }
 
