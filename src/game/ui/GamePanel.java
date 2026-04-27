@@ -138,7 +138,7 @@ public class GamePanel extends JPanel {
         drawInteractPrompt(g2);
 
         // --- VIGNETTE (FLASHLIGHT EFFECT) ---
-        // (removed: was battery-dependent)
+        drawVignette(g2);
 
         if (state == GameState.RIDDLE_STASIS) {
             drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
@@ -339,5 +339,31 @@ public class GamePanel extends JPanel {
         g.drawString(text, x, y);
     }
 
-}
+    // ---- Vignette (flashlight effect) ---------------------
+    private void drawVignette(Graphics2D g) {
+        int w = getWidth();
+        int h = getHeight();
+        game.entity.Player p = gsm.getPlayer();
 
+        int cx = p.getTileX() * TILE + TILE / 2;
+        int cy = p.getTileY() * TILE + TILE / 2;
+
+        // Fixed flashlight radius (battery removed)
+        int radius = 400;
+
+        float[] dist = {0.0f, 0.4f, 1.0f};
+        Color[] colors = {
+            new Color(255, 255, 220, 30),
+            new Color(0, 0, 0, 0),
+            new Color(0, 0, 0, 180)
+        };
+
+        RadialGradientPaint rgp = new RadialGradientPaint(
+            new java.awt.geom.Point2D.Double(cx, cy),
+            radius, dist, colors);
+
+        g.setPaint(rgp);
+        g.fillRect(0, 0, w, h);
+    }
+
+}
