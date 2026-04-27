@@ -37,7 +37,6 @@ public class GamePanel extends JPanel {
 
     private final GameStateManager gsm;
     private       GameLoop         gameLoop;
-    private float battery = 100.0f; // Battery percentage (100 to 0)
     private       RiddlePanel      riddlePanel; // JDialog-based, set after window is ready
     private boolean isPaused = false;
 
@@ -114,12 +113,6 @@ public class GamePanel extends JPanel {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
-        // --- BATTERY DRAIN LOGIC ---
-        if (!isPaused && gsm.getCurrentState() == GameState.EXPLORATION) {
-            battery -= 0.007f; // Realistic speed: lasts ~6-8 minutes
-            if (battery < 0) battery = 0;
-        }
-
         // --- SCREEN SHAKE (PANIC FEEDBACK) ---
         GameState state = gsm.getCurrentState();
         if (state == GameState.PANIC_BUFFER) {
@@ -145,7 +138,7 @@ public class GamePanel extends JPanel {
         drawInteractPrompt(g2);
 
         // --- VIGNETTE (FLASHLIGHT EFFECT) ---
-        drawVignette(g2);
+        // (removed: was battery-dependent)
 
         if (state == GameState.RIDDLE_STASIS) {
             drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
@@ -167,10 +160,7 @@ public class GamePanel extends JPanel {
         g.setColor(timerColor());
         g.drawString("T: " + time, 16, 38);
 
-        // --- DRAW BATTERY ON HUD ---
-        g.setFont(new Font("Monospaced", Font.BOLD, 18));
-        g.setColor(battery > 20 ? new Color(100, 220, 140) : new Color(255, 80, 80));
-        g.drawString("BATTERY: " + (int)battery + "%", 540, 38);
+
 
         g.setFont(new Font("Monospaced", Font.BOLD, 18));
         g.setColor(COL_HUD_TEXT);
@@ -349,33 +339,5 @@ public class GamePanel extends JPanel {
         g.drawString(text, x, y);
     }
 
-    // ---- Vignette (flashlight effect) ---------------------
-    private void drawVignette(Graphics2D g) {
-        int w = getWidth();
-        int h = getHeight();
-        game.entity.Player p = gsm.getPlayer();
-
-        int cx = p.getTileX() * TILE + TILE / 2;
-        int cy = p.getTileY() * TILE + TILE / 2;
-
-        int radius = (int)(150 + (450 * (battery / 100.0f)));
-
-        if (battery < 30 && Math.random() > 0.9) {
-            radius -= (int)(Math.random() * 15);
-        }
-
-        float[] dist = {0.0f, 0.4f, 1.0f};
-        Color[] colors = {
-            new Color(255, 255, 220, 30),
-            new Color(0, 0, 0, 0),
-            new Color(0, 0, 0, 80)
-        };
-
-        RadialGradientPaint rgp = new RadialGradientPaint(
-            new java.awt.geom.Point2D.Double(cx, cy),
-            radius, dist, colors);
-
-        g.setPaint(rgp);
-        g.fillRect(0, 0, w, h);
-    }
 }
+

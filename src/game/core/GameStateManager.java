@@ -36,7 +36,9 @@ public class GameStateManager {
     private GameMode      activeMode      = GameMode.FUN_PLAY;
     private KidsSubject   kidsSubject     = KidsSubject.MATHS;
     private DifficultyLevel difficulty    = DifficultyLevel.EASY;
-    private int           itemsCollected  = 0;
+    private int           itemsCollected      = 0;
+    private int           score               = 0;
+    private int           scoreTimerAccumMs   = 0; // accumulator for -5/sec decay
     private static final int ITEMS_NEEDED = 3;
 
     // --- Current active riddle (null when not in stasis) ---
@@ -73,6 +75,16 @@ public class GameStateManager {
     public void update(int deltaMs) {
         if (isPaused) return;
 
+        // --- Score: -5 every second during active gameplay ---
+        if (currentState == GameState.EXPLORATION ||
+            currentState == GameState.PANIC_BUFFER) {
+            scoreTimerAccumMs += deltaMs;
+            while (scoreTimerAccumMs >= 1000) {
+                score = Math.max(0, score - 5);
+                scoreTimerAccumMs -= 1000;
+            }
+        }
+
         if (currentState == GameState.EXPLORATION) {
             int prevSentinelX = sentinel.getTileX();
             int prevSentinelY = sentinel.getTileY();
@@ -100,6 +112,9 @@ public class GameStateManager {
         int prevPlayerX = player.getTileX();
         int prevPlayerY = player.getTileY();
         player.move(dx, dy);
+
+        // Score: -1 per block moved
+        score = Math.max(0, score - 1);
 
         // Fix: check if player walked INTO the sentinel
         checkSentinelCatch(sentinel.getTileX(), sentinel.getTileY());
@@ -149,6 +164,7 @@ public class GameStateManager {
             // --- SUCCESS ---
             riddleTargetItem.collect();
             itemsCollected++;
+            score += 200; // +200 per correct answer
             activeRiddle     = null;
             riddleTargetItem = null;
             currentState     = GameState.EXPLORATION;
@@ -162,11 +178,14 @@ public class GameStateManager {
     }
 
     // ---- Skip/abandon current riddle ----------------------
+    // NOTE: skipping does NOT trigger panic — sentinel stays frozen.
+    // Only a wrong answer triggers the Panic Buffer / sentinel hunt.
     public void skipRiddle() {
         if (currentState != GameState.RIDDLE_STASIS) return;
         activeRiddle     = null;
         riddleTargetItem = null;
-        startPanicBuffer();
+        currentState     = GameState.EXPLORATION;
+        notifyListeners();
     }
 
     // ---- BEGIN Panic Buffer (3-second freeze on player) ---
@@ -222,8 +241,10 @@ public class GameStateManager {
         player.reset(5, 5);
         sentinel.reset(1, 1);
         items.forEach(BioEquipment::reset);
-        itemsCollected   = 0;
-        panicBufferMs    = 0;
+        itemsCollected      = 0;
+        score               = 0;
+        scoreTimerAccumMs   = 0;
+        panicBufferMs       = 0;
         activeRiddle     = null;
         riddleTargetItem = null;
         currentState     = GameState.EXPLORATION;
@@ -250,4 +271,5 @@ public class GameStateManager {
     public Riddle           getActiveRiddle()    { return activeRiddle; }
     public int              getPanicBufferMs()   { return panicBufferMs; }
     public boolean          isExitUnlocked()     { return itemsCollected >= ITEMS_NEEDED; }
+    public int              getScore()           { return score; }
 }
