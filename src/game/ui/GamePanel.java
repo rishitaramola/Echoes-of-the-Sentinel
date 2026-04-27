@@ -17,7 +17,6 @@ import java.awt.geom.Point2D;
  * its own focus and all clicks/typing work correctly.
  */
 public class GamePanel extends JPanel {
-    
 
     private static final Color COL_FLOOR          = new Color(18, 14, 40);
     private static final Color COL_WALL           = new Color(35, 25, 65);
@@ -41,25 +40,7 @@ public class GamePanel extends JPanel {
     private float battery = 100.0f; // Battery percentage (100 to 0)
     private       RiddlePanel      riddlePanel; // JDialog-based, set after window is ready
     private boolean isPaused = false;
- private void drawPauseOverlay(Graphics2D g) {
-    int w = getWidth();
-    int h = getHeight();
 
-    // Dark full screen
-    g.setColor(new Color(0, 0, 0, 180));
-    g.fillRect(0, 0, w, h);
-
-    // Text
-    String text = "PAUSED";
-    g.setFont(new Font("Monospaced", Font.BOLD, 40));
-    g.setColor(Color.WHITE);
-
-    FontMetrics fm = g.getFontMetrics();
-    int x = (w - fm.stringWidth(text)) / 2;
-    int y = h / 2;
-
-    g.drawString(text, x, y);
-}
     // -------------------------------------------------------
     public GamePanel(GameStateManager gsm) {
         this.gsm = gsm;
@@ -87,40 +68,57 @@ public class GamePanel extends JPanel {
         }));
     }
 
-   public void setGameLoop(GameLoop gl) {
-    this.gameLoop = gl;
-
-    // 🔥 IMPORTANT RESET
-    this.isPaused = false;
-}
-
-    // ---- Input routing -------------------------------------
-    private void handleKey(int key) {
-    if (isPaused) return; // ✅ STOP INPUT WHEN PAUSED
-
-    if (gsm.getCurrentState() != GameState.EXPLORATION && gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
-
-    switch (key) {
-        case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
-        case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);
-        case KeyEvent.VK_A, KeyEvent.VK_LEFT  -> gsm.movePlayer(-1, 0);
-        case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> gsm.movePlayer( 1, 0);
-        case KeyEvent.VK_E, KeyEvent.VK_SPACE -> gsm.interact();
+    public void setGameLoop(GameLoop gl) {
+        this.gameLoop = gl;
+        this.isPaused = false; // reset pause on new game
     }
-    repaint();
-}
 
-    // ---- Main render ---------------------------------------
-   @Override
+    // ---- Pause / Resume -----------------------------------
+    public void pauseGame() {
+        isPaused = true;
+        gsm.setPaused(true);
+        repaint();
+    }
+
+    public void resumeGame() {
+        isPaused = false;
+        gsm.setPaused(false);
+        repaint();
+        requestFocusInWindow();
+    }
+
+    public boolean isPaused() {
+        return isPaused;
+    }
+
+    // ---- Input routing ------------------------------------
+    private void handleKey(int key) {
+        if (isPaused) return;
+
+        if (gsm.getCurrentState() != GameState.EXPLORATION &&
+            gsm.getCurrentState() != GameState.PANIC_BUFFER) return;
+
+        switch (key) {
+            case KeyEvent.VK_W, KeyEvent.VK_UP    -> gsm.movePlayer(0, -1);
+            case KeyEvent.VK_S, KeyEvent.VK_DOWN  -> gsm.movePlayer(0,  1);
+            case KeyEvent.VK_A, KeyEvent.VK_LEFT  -> gsm.movePlayer(-1, 0);
+            case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> gsm.movePlayer( 1, 0);
+            case KeyEvent.VK_E, KeyEvent.VK_SPACE -> gsm.interact();
+        }
+        repaint();
+    }
+
+    // ---- Main render --------------------------------------
+    @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
+
         // --- BATTERY DRAIN LOGIC ---
-       // --- BATTERY DRAIN LOGIC ---
-   if (!isPaused && gsm.getCurrentState() == GameState.EXPLORATION) { 
-        battery -= 0.007f; // Realistic speed: lasts ~6-8 minutes
-        if (battery < 0) battery = 0;
-    }
+        if (!isPaused && gsm.getCurrentState() == GameState.EXPLORATION) {
+            battery -= 0.007f; // Realistic speed: lasts ~6-8 minutes
+            if (battery < 0) battery = 0;
+        }
 
         // --- SCREEN SHAKE (PANIC FEEDBACK) ---
         GameState state = gsm.getCurrentState();
@@ -130,7 +128,14 @@ public class GamePanel extends JPanel {
             g2.translate(shakeX, shakeY);
         }
 
+        // ---- DRAW HUD ----
         drawHUD(g2);
+
+        if (isPaused) {
+            drawPauseOverlay(g2);
+            return;
+        }
+
         g2.translate(0, HUD_H);
 
         drawTiles(g2);
@@ -146,11 +151,6 @@ public class GamePanel extends JPanel {
             drawFullOverlay(g2, COL_STASIS_OVERLAY, "-- TEMPORAL STASIS --");
         } else if (state == GameState.PANIC_BUFFER) {
             drawPanicOverlay(g2);
-        }
-
-        if (isPaused) {
-            g2.translate(0, -HUD_H); 
-            drawPauseOverlay(g2);
         }
     }
 
@@ -168,9 +168,7 @@ public class GamePanel extends JPanel {
         g.drawString("T: " + time, 16, 38);
 
         // --- DRAW BATTERY ON HUD ---
-       // --- DRAW BATTERY ON HUD ---
         g.setFont(new Font("Monospaced", Font.BOLD, 18));
-        // Turn red when low, otherwise keep it a cool cyan/green
         g.setColor(battery > 20 ? new Color(100, 220, 140) : new Color(255, 80, 80));
         g.drawString("BATTERY: " + (int)battery + "%", 540, 38);
 
@@ -178,9 +176,12 @@ public class GamePanel extends JPanel {
         g.setColor(COL_HUD_TEXT);
         g.drawString("ITEMS: " + gsm.getItemsCollected() + " / 3", 200, 38);
 
+        // SCORE
+        g.drawString("SCORE: " + gsm.getScore(), 380, 38);
+
         g.setFont(new Font("Monospaced", Font.PLAIN, 13));
         g.setColor(stateColor());
-        g.drawString(stateLabel(), 420, 38);
+        g.drawString(stateLabel(), 580, 38);
 
         g.setColor(new Color(60, 40, 100));
         g.fillRect(0, HUD_H - 2, getWidth(), 2);
@@ -211,7 +212,7 @@ public class GamePanel extends JPanel {
         };
     }
 
-    // ---- Tile renderer -------------------------------------
+    // ---- Tile renderer ------------------------------------
     private void drawTiles(Graphics2D g) {
         int[][] map = TileMap.getMap();
         for (int row = 0; row < TileMap.ROWS; row++) {
@@ -239,7 +240,7 @@ public class GamePanel extends JPanel {
         }
     }
 
-    // ---- Items ---------------------------------------------
+    // ---- Items --------------------------------------------
     private void drawItems(Graphics2D g) {
         for (BioEquipment item : gsm.getItems()) {
             if (item.isCollected()) continue;
@@ -258,7 +259,7 @@ public class GamePanel extends JPanel {
         }
     }
 
-    // ---- Player --------------------------------------------
+    // ---- Player -------------------------------------------
     private void drawPlayer(Graphics2D g) {
         Player p = gsm.getPlayer();
         int cx = p.getTileX() * TILE + TILE / 2;
@@ -270,7 +271,7 @@ public class GamePanel extends JPanel {
         g.fillOval(cx + 3, cy - 5, 5, 5);
     }
 
-    // ---- Sentinel ------------------------------------------
+    // ---- Sentinel -----------------------------------------
     private void drawSentinel(Graphics2D g) {
         Sentinel s = gsm.getSentinel();
         int cx = s.getTileX() * TILE + TILE / 2;
@@ -286,7 +287,7 @@ public class GamePanel extends JPanel {
         g.fillOval(cx + 2, cy - 14, 5, 4);
     }
 
-    // ---- Interact prompt -----------------------------------
+    // ---- Interact prompt ----------------------------------
     private void drawInteractPrompt(Graphics2D g) {
         for (BioEquipment item : gsm.getItems()) {
             if (!item.isCollected() && item.isNearby()) {
@@ -299,7 +300,7 @@ public class GamePanel extends JPanel {
         }
     }
 
-    // ---- Overlays ------------------------------------------
+    // ---- Overlays -----------------------------------------
     private void drawFullOverlay(Graphics2D g, Color tint, String label) {
         int w = TileMap.COLS * TILE, h = TileMap.ROWS * TILE;
         g.setColor(tint);
@@ -329,51 +330,51 @@ public class GamePanel extends JPanel {
         String sub = "The Sentinel is heading to your location!";
         g.drawString(sub, (w - g.getFontMetrics().stringWidth(sub)) / 2, h / 2 + 18);
     }
-    public void pauseGame() {
-    isPaused = true;
-    gsm.setPaused(true); // 🔥 IMPORTANT
-    repaint();
-}
 
-public void resumeGame() {
-    isPaused = false;
-    gsm.setPaused(false); // 🔥      IMPORTANT
-    repaint();
-    requestFocusInWindow();
-}
+    private void drawPauseOverlay(Graphics2D g) {
+        int w = getWidth();
+        int h = getHeight();
 
-public boolean isPaused() {
-    return isPaused;
-}
-private void drawVignette(Graphics2D g) {
+        g.setColor(new Color(0, 0, 0, 180));
+        g.fillRect(0, 0, w, h);
+
+        String text = "PAUSED";
+        g.setFont(new Font("Monospaced", Font.BOLD, 40));
+        g.setColor(Color.WHITE);
+
+        FontMetrics fm = g.getFontMetrics();
+        int x = (w - fm.stringWidth(text)) / 2;
+        int y = h / 2;
+
+        g.drawString(text, x, y);
+    }
+
+    // ---- Vignette (flashlight effect) ---------------------
+    private void drawVignette(Graphics2D g) {
         int w = getWidth();
         int h = getHeight();
         game.entity.Player p = gsm.getPlayer();
-        
+
         int cx = p.getTileX() * TILE + TILE / 2;
         int cy = p.getTileY() * TILE + TILE / 2;
-        
-        
-        int radius = (int)(150 + (450 * (battery / 100.0f))); 
+
+        int radius = (int)(150 + (450 * (battery / 100.0f)));
 
         if (battery < 30 && Math.random() > 0.9) {
-            radius -= (int)(Math.random() * 15); 
+            radius -= (int)(Math.random() * 15);
         }
-       
 
         float[] dist = {0.0f, 0.4f, 1.0f};
-        
         Color[] colors = {
-            new Color(255, 255, 220, 30), 
-            new Color(0, 0, 0, 0),        
-            new Color(0, 0, 0, 80)        
+            new Color(255, 255, 220, 30),
+            new Color(0, 0, 0, 0),
+            new Color(0, 0, 0, 80)
         };
-        
-        // Using the full path for Point2D ensures no conflicts
+
         RadialGradientPaint rgp = new RadialGradientPaint(
-            new java.awt.geom.Point2D.Double(cx, cy), 
+            new java.awt.geom.Point2D.Double(cx, cy),
             radius, dist, colors);
-            
+
         g.setPaint(rgp);
         g.fillRect(0, 0, w, h);
     }

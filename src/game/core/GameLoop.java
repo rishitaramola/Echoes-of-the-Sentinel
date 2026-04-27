@@ -11,6 +11,8 @@ import javax.swing.Timer;
  *   3. Calls repaint() on the render target.
  *
  * IMPORTANT:
+ * - The global timer ALWAYS ticks — it does NOT pause during RIDDLE_STASIS.
+ *   This is the core "Temporal Stasis" tension.
  * - GameLoop NEVER handles pause directly.
  * - Pause is handled inside GameStateManager / GamePanel.
  * - Rendering ALWAYS continues (so overlays like PAUSED show).
@@ -58,6 +60,7 @@ public class GameLoop {
         int deltaMs = (int) (now - lastTickTime);
         lastTickTime = now;
 
+        // Global timer always counts down (even during riddle stasis)
         GameState state = gsm.getCurrentState();
 
         // Timer continues in all active gameplay states
@@ -74,10 +77,10 @@ public class GameLoop {
             }
         }
 
-        // 🔥 GameStateManager decides whether to update (pause handled there)
+        // GameStateManager decides whether to update (pause handled there)
         gsm.update(deltaMs);
 
-        // 🔥 ALWAYS repaint (important for pause overlay)
+        // ALWAYS repaint (important for pause overlay)
         repaintCallback.run();
     }
 

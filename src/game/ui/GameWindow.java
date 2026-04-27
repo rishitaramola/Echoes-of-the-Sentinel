@@ -18,23 +18,31 @@ public class GameWindow extends JFrame {
     private final MenuPanel menuPanel;
     private final GamePanel gamePanel;
     private       GameLoop  gameLoop;
-      private JButton pauseBtn, resumeBtn, restartBtn;
+
+    private JButton pauseBtn, resumeBtn, restartBtn;
+    private JPanel controlPanel;
+
     private static final String MENU = "MENU";
     private static final String GAME = "GAME";
 
-    private GameMode      lastMode      = GameMode.FUN_PLAY;
-    private KidsSubject   lastSubject   = KidsSubject.MATHS;
+    private GameMode lastMode = GameMode.FUN_PLAY;
+    private KidsSubject lastSubject = KidsSubject.MATHS;
     private DifficultyLevel lastDifficulty = DifficultyLevel.EASY;
-    private float         lastSpeed     = 1.0f;
-    private JPanel controlPanel;
-  private void restartGame() {
-    stopGame();                 // 🔥 stop old loop completely
-    gamePanel.resumeGame();     // 🔥 reset pause state
-    startGame(lastMode, lastSubject, lastDifficulty, lastSpeed);
-}
+    private float lastSpeed = 1.0f;
+
+    // -------------------------------------------------------
+
+    private void restartGame() {
+        stopGame();
+        gamePanel.resumeGame();
+        startGame(lastMode, lastSubject, lastDifficulty, lastSpeed);
+    }
+
+    // -------------------------------------------------------
 
     public GameWindow() {
         super("Echoes of the Sentinel");
+
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
 
@@ -43,55 +51,64 @@ public class GameWindow extends JFrame {
 
         root.add(menuPanel, MENU);
         root.add(gamePanel, GAME);
+
         setLayout(new BorderLayout());
-add(root, BorderLayout.CENTER);
+        add(root, BorderLayout.CENTER);
+
+        // ---- CONTROL PANEL ----
         controlPanel = new JPanel();
 
-pauseBtn = new JButton("Pause");
-resumeBtn = new JButton("Resume");
-restartBtn = new JButton("Restart");
-pauseBtn.setToolTipText("Pause the game");
-resumeBtn.setToolTipText("Resume the game");
-restartBtn.setToolTipText("Restart the game");
+        pauseBtn = new JButton("Pause");
+        resumeBtn = new JButton("Resume");
+        restartBtn = new JButton("Restart");
 
-controlPanel.add(pauseBtn);
-controlPanel.add(resumeBtn);
-controlPanel.add(restartBtn);
+        pauseBtn.setToolTipText("Pause the game");
+        resumeBtn.setToolTipText("Resume the game");
+        restartBtn.setToolTipText("Restart the game");
 
-add(controlPanel, BorderLayout.NORTH);
-controlPanel.setVisible(false);
-pauseBtn.addActionListener(e -> {
-    if (gsm.getCurrentState() != GameState.RIDDLE_STASIS) {
-        gamePanel.pauseGame();
-    }
-});
+        controlPanel.add(pauseBtn);
+        controlPanel.add(resumeBtn);
+        controlPanel.add(restartBtn);
 
-resumeBtn.addActionListener(e -> {
-    if (gamePanel != null) gamePanel.resumeGame();
-});
+        add(controlPanel, BorderLayout.NORTH);
+        controlPanel.setVisible(false);
 
-restartBtn.addActionListener(e -> {
-    gamePanel.resumeGame();
-    startGame(lastMode, lastSubject, lastDifficulty, lastSpeed);
-});
+        // ---- BUTTON ACTIONS ----
+        pauseBtn.addActionListener(e -> {
+            if (gsm.getCurrentState() != GameState.RIDDLE_STASIS) {
+                gamePanel.pauseGame();
+            }
+        });
+
+        resumeBtn.addActionListener(e -> {
+            if (gamePanel != null) gamePanel.resumeGame();
+        });
+
+        restartBtn.addActionListener(e -> {
+            gamePanel.resumeGame();
+            startGame(lastMode, lastSubject, lastDifficulty, lastSpeed);
+        });
+
         pack();
         setLocationRelativeTo(null);
 
-        // Pass 'this' JFrame to GamePanel so RiddlePanel (JDialog) has a parent
+        // ---- RIDDLE PANEL INIT ----
         gamePanel.initRiddlePanel(this);
 
-        // Listen for win/lose
-       gsm.addListener(state -> SwingUtilities.invokeLater(() -> {
+        // ---- STATE LISTENER ----
+        gsm.addListener(state -> SwingUtilities.invokeLater(() -> {
 
-    updatePauseButtonState(); // 🔥 ADD THIS
+            updatePauseButtonState();
 
-    if (state == GameState.WIN || state == GameState.LOSE) {
-        handleGameOver(state);
-    }
-}));
+            if (state == GameState.WIN || state == GameState.LOSE) {
+                handleGameOver(state);
+            }
+        }));
 
         showMenu();
     }
+
+    // -------------------------------------------------------
 
     public void showMenu() {
         stopGame();
@@ -100,68 +117,96 @@ restartBtn.addActionListener(e -> {
         menuPanel.requestFocusInWindow();
     }
 
-    public void startGame(GameMode mode, KidsSubject subject, DifficultyLevel difficulty, float speedMultiplier) {
-        lastMode       = mode;
-        lastSubject    = subject;
+    // -------------------------------------------------------
+
+    public void startGame(GameMode mode, KidsSubject subject,
+                          DifficultyLevel difficulty, float speedMultiplier) {
+
+        lastMode = mode;
+        lastSubject = subject;
         lastDifficulty = difficulty;
-        lastSpeed      = speedMultiplier;
+        lastSpeed = speedMultiplier;
 
         gsm.startGame(mode, subject, difficulty, speedMultiplier);
+
         gameLoop = new GameLoop(gsm, gamePanel::repaint);
 
         int w = TileMap.COLS * TileMap.TILE_PX;
         int h = TileMap.ROWS * TileMap.TILE_PX + 60;
+
         gamePanel.setPreferredSize(new Dimension(w, h));
+
         pack();
         setLocationRelativeTo(null);
 
+        gamePanel.setGameLoop(gameLoop);
+        gamePanel.resumeGame();
 
-        gamePanel.setGameLoop(gameLoop);  
-        gamePanel.resumeGame(); // 🔥 ensure not paused  
+        controlPanel.setVisible(true);
 
-        
-controlPanel.setVisible(true);
         cards.show(root, GAME);
         gamePanel.requestFocusInWindow();
+
         gameLoop.start();
     }
 
+    // -------------------------------------------------------
+
     private void stopGame() {
-        if (gameLoop != null) { gameLoop.stop(); gameLoop = null; }
+        if (gameLoop != null) {
+            gameLoop.stop();
+            gameLoop = null;
+        }
     }
+
+    // -------------------------------------------------------
 
     private void handleGameOver(GameState result) {
         stopGame();
-        String msg   = result == GameState.WIN
-            ? "YOU ESCAPED!\nYou retrieved all needed equipment and survived."
-            : "YOU WERE CAUGHT!\nThe Sentinel found you. Better luck next time.";
-        String title = result == GameState.WIN ? "Mission Complete" : "Mission Failed";
+
+        int score = gsm.getScore();
+
+        String msg = result == GameState.WIN
+                ? "YOU ESCAPED!\nYou retrieved all needed equipment and survived.\n\nScore: " + score
+                : "YOU WERE CAUGHT!\nThe Sentinel found you. Better luck next time.\n\nScore: " + score;
+
+        String title = result == GameState.WIN
+                ? "Mission Complete"
+                : "Mission Failed";
 
         int choice = JOptionPane.showOptionDialog(
-            this, msg, title,
-            JOptionPane.YES_NO_OPTION,
-            result == GameState.WIN ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE,
-            null,
-            new String[]{"Play Again", "Main Menu"},
-            "Play Again"
+                this,
+                msg,
+                title,
+                JOptionPane.YES_NO_OPTION,
+                result == GameState.WIN
+                        ? JOptionPane.INFORMATION_MESSAGE
+                        : JOptionPane.ERROR_MESSAGE,
+                null,
+                new String[]{"Play Again", "Main Menu"},
+                "Play Again"
         );
 
-        if (choice == JOptionPane.YES_OPTION) startGame(lastMode, lastSubject, lastDifficulty, lastSpeed);
-        else showMenu();
+        if (choice == JOptionPane.YES_OPTION) {
+            startGame(lastMode, lastSubject, lastDifficulty, lastSpeed);
+        } else {
+            showMenu();
+        }
     }
+
+    // -------------------------------------------------------
+
     private void updatePauseButtonState() {
-    GameState state = gsm.getCurrentState();
+        GameState state = gsm.getCurrentState();
 
-    if (state == GameState.RIDDLE_STASIS) {
-        pauseBtn.setEnabled(false);
-        resumeBtn.setEnabled(false);
-
-        pauseBtn.setToolTipText("Cannot pause during puzzle");
-    } else {
-        pauseBtn.setEnabled(true);
-        resumeBtn.setEnabled(true);
-
-        pauseBtn.setToolTipText("Pause the game");
+        if (state == GameState.RIDDLE_STASIS) {
+            pauseBtn.setEnabled(false);
+            resumeBtn.setEnabled(false);
+            pauseBtn.setToolTipText("Cannot pause during puzzle");
+        } else {
+            pauseBtn.setEnabled(true);
+            resumeBtn.setEnabled(true);
+            pauseBtn.setToolTipText("Pause the game");
+        }
     }
-}
 }
