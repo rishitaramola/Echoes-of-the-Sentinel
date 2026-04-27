@@ -1,3 +1,5 @@
 bin/
 .vscode/
 *.class
+sources.txt 
+src/sources.txt 

@@ -17,7 +17,7 @@ import java.util.List;
  * State flags (isRiddleActive, isPanicBuffer) control which systems run.
  */
 public class GameStateManager {
-
+private boolean isPaused = false;
     // --- Core State ---
     private GameState currentState = GameState.MENU;
     private int       panicBufferMs = 0;
@@ -42,7 +42,9 @@ public class GameStateManager {
 
     // --- Listener so UI can react to state changes ---
     private final List<GameStateListener> listeners = new ArrayList<>();
-
+public void setPaused(boolean paused) {
+    this.isPaused = paused;
+}
     // -------------------------------------------------------
     public GameStateManager() {
         player       = new Player(5, 5);
@@ -63,6 +65,7 @@ public class GameStateManager {
 
     // ---- Called once per game tick by the GameLoop --------
     public void update(int deltaMs) {
+        if (isPaused) return;
         if (currentState == GameState.EXPLORATION) {
             int prevSentinelX = sentinel.getTileX();
             int prevSentinelY = sentinel.getTileY();
